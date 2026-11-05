@@ -1,0 +1,91 @@
+# 发布到 VS Code Marketplace。
+#
+# 认证走 Microsoft Entra ID（workload identity federation），不使用 PAT。
+# 一次性准备（Entra 应用注册、Federated credential、把身份加成 Marketplace
+# publisher 成员、GitHub Environment 与 secrets）与 vscode-deepseek-balance
+# 仓库完全同构，照着那边的 docs/release-setup.html 做即可。
+#
+# 唯一要注意的：Federated credential 的 subject 必须换成本仓库的不可变 ID：
+#   repo:luhaifeng666@<OWNER_ID>/vscode-tetris@<REPO_ID>:environment:release
+# 建好仓库后可以用下面的命令复核：
+#   gh api repos/luhaifeng666/vscode-tetris/actions/oidc/customization/sub
+#
+# 发布方式：
+#   npm version 0.1.0 --no-git-tag-version
+#   git commit -am "chore: 发布 0.1.0"
+#   git tag v0.1.0 && git push origin main --tags
+
+name: 发布
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: 打包并发布
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 类型检查
+        run: pnpm run check
+
+      - name: 测试
+        run: pnpm test
+
+      - name: 校验 tag 与 package.json 版本一致
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          TAG="${GITHUB_REF_NAME#v}"
+          if [ "$VERSION" != "$TAG" ]; then
+            echo "::error::tag v$TAG 与 package.json 里的 $VERSION 不一致，先同步版本号再发"
+            exit 1
+          fi
+          echo "版本 $VERSION 校验通过"
+
+      - name: 打包
+        run: pnpm run package
+
+      - name: 冒烟测试（解开 vsix 校验包内容）
+        run: pnpm run smoke:vsix
+
+      - name: 登录 Azure（OIDC，无需密钥）
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          allow-no-subscriptions: true
+
+      - name: 发布到 Marketplace
+        env:
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          npx vsce publish --azure-credential \
+            --packagePath "./vscode-tetris-${VERSION}.vsix"

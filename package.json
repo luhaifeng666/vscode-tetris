@@ -1,0 +1,173 @@
+{
+  "name": "vscode-tetris",
+  "displayName": "俄罗斯方块",
+  "description": "在侧边栏里玩一局经典俄罗斯方块。一个快捷键开始，失焦自动暂停，关掉即摸鱼。",
+  "version": "0.4.0",
+  "publisher": "luhaifeng666",
+  "license": "MIT",
+  "author": {
+    "name": "luhaifeng666"
+  },
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "tetris",
+    "game",
+    "俄罗斯方块",
+    "游戏",
+    "sidebar",
+    "webview"
+  ],
+  "icon": "images/icon.png",
+  "main": "./dist/extension.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/luhaifeng666/vscode-tetris.git"
+  },
+  "bugs": {
+    "url": "https://github.com/luhaifeng666/vscode-tetris/issues"
+  },
+  "homepage": "https://github.com/luhaifeng666/vscode-tetris#readme",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "tetrisPanel",
+          "title": "Scratch",
+          "icon": "media/activity-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "tetrisPanel": [
+        {
+          "id": "tetris.game",
+          "name": "Scratch",
+          "type": "webview"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "tetris.toggle",
+        "title": "开始 / 暂停",
+        "category": "俄罗斯方块"
+      },
+      {
+        "command": "tetris.restart",
+        "title": "重新开始",
+        "category": "俄罗斯方块"
+      },
+      {
+        "command": "tetris.resetHighScore",
+        "title": "清除最高分",
+        "category": "俄罗斯方块"
+      },
+      {
+        "command": "tetris.openSettings",
+        "title": "打开设置",
+        "category": "俄罗斯方块"
+      },
+      {
+        "command": "tetris.openWindow",
+        "title": "在独立窗口打开",
+        "category": "俄罗斯方块"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "tetris.toggle",
+        "key": "ctrl+alt+t",
+        "mac": "cmd+alt+t"
+      }
+    ],
+    "configuration": {
+      "title": "俄罗斯方块",
+      "properties": {
+        "tetris.autoPause": {
+          "type": "boolean",
+          "default": true,
+          "scope": "window",
+          "markdownDescription": "窗口失焦、切换编辑器或收起侧边栏时自动暂停。"
+        },
+        "tetris.disguise": {
+          "type": "boolean",
+          "default": true,
+          "scope": "window",
+          "markdownDescription": "伪装模式：空闲与暂停时面板显示为普通草稿文本，而不是游戏画面。"
+        },
+        "tetris.autoStart": {
+          "type": "boolean",
+          "default": false,
+          "scope": "window",
+          "markdownDescription": "打开面板时直接开始游戏。"
+        },
+        "tetris.startLevel": {
+          "type": "number",
+          "default": 1,
+          "minimum": 1,
+          "maximum": 10,
+          "scope": "window",
+          "markdownDescription": "起始等级（1–10）。"
+        },
+        "tetris.music": {
+          "type": "boolean",
+          "default": true,
+          "scope": "window",
+          "markdownDescription": "播放背景音乐（Korobeiniki 公版民谣的芯片改编）。"
+        },
+        "tetris.soundEffects": {
+          "type": "boolean",
+          "default": true,
+          "scope": "window",
+          "markdownDescription": "播放旋转、硬降、消行、升级与游戏结束音效。"
+        },
+        "tetris.hideSidebarOnPause": {
+          "type": "boolean",
+          "default": true,
+          "scope": "window",
+          "markdownDescription": "老板键模式：暂停、失焦或按 Esc 收起时直接隐藏整个侧边栏，只留下中性的 Scratch 图标。再次按快捷键会重新打开。"
+        },
+        "tetris.skin": {
+          "type": "string",
+          "enum": [
+            "gameboy",
+            "light",
+            "transparent"
+          ],
+          "enumDescriptions": [
+            "经典 Game Boy 单色绿屏",
+            "白色 LCD，适合浅色主题",
+            "透明背景，方块跟随当前 VS Code 主题的前景色"
+          ],
+          "default": "gameboy",
+          "scope": "window",
+          "markdownDescription": "游戏皮肤。`transparent` 会去掉绿色屏幕底色，让侧边栏背景直接透出来，隐蔽性最强。"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "check": "tsc --noEmit",
+    "compile": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "bundle": "node esbuild.mjs --minify",
+    "test": "node esbuild.mjs --tests && node --test \"out-test/**/*.test.js\"",
+    "smoke": "node --test scripts/smoke/extension.test.mjs",
+    "smoke:vsix": "SMOKE_TARGET=vsix node --test scripts/smoke/extension.test.mjs",
+    "vscode:prepublish": "npm run bundle",
+    "package": "vsce package",
+    "publish": "vsce publish"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/vscode": "1.95.0",
+    "@vscode/vsce": "^3.2.1",
+    "esbuild": "^0.24.2",
+    "typescript": "^5.9.3"
+  }
+}

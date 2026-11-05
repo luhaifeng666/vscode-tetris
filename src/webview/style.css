@@ -1,0 +1,220 @@
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+body {
+  box-sizing: border-box;
+  background: var(--vscode-sideBar-background, #252526);
+  color: var(--vscode-foreground, #cccccc);
+  font-family: var(--vscode-font-family, sans-serif);
+  font-size: 12px;
+  user-select: none;
+
+  /* 皮肤变量，默认 Game Boy 绿屏 */
+  --screen: #8bac0f;
+  --screen-border: #0f380f;
+  --screen-dash: #306230;
+  --label-bg: #306230;
+  --label-fg: #9bbc0f;
+  --value-fg: #0f380f;
+  --overlay-bg: color-mix(in srgb, #8bac0f 86%, transparent);
+  --overlay-fg: #0f380f;
+}
+
+body[data-skin="light"] {
+  --screen: #f6f6ee;
+  --screen-border: #2a2a2a;
+  --screen-dash: #9a9a8a;
+  --label-bg: #e2e2d6;
+  --label-fg: #3a3a3a;
+  --value-fg: #161616;
+  --overlay-bg: color-mix(in srgb, #f6f6ee 88%, transparent);
+  --overlay-fg: #161616;
+}
+
+body[data-skin="transparent"] {
+  --screen: transparent;
+  --screen-border: var(--vscode-editorWidget-border, #454545);
+  --screen-dash: var(--vscode-editorWidget-border, #454545);
+  --label-bg: transparent;
+  --label-fg: var(--vscode-descriptionForeground, #8a8a8a);
+  --value-fg: var(--vscode-foreground, #d4d4d4);
+  --overlay-bg: color-mix(in srgb, var(--vscode-editor-background, #1f1f1f) 74%, transparent);
+  --overlay-fg: var(--vscode-foreground, #d4d4d4);
+}
+
+.hidden {
+  display: none !important;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* ---- 伪装用的草稿页 ---- */
+
+.scratch {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 14px 12px;
+  color: var(--vscode-descriptionForeground, #8a8a8a);
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 12px;
+}
+
+.scratch-title {
+  margin: 0 0 10px;
+  color: var(--vscode-foreground, #cccccc);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.scratch p {
+  margin: 0 0 6px;
+  line-height: 1.7;
+}
+
+.caret {
+  display: inline-block;
+  width: 1px;
+  height: 1em;
+  background: var(--vscode-editorCursor-foreground, #cccccc);
+  vertical-align: text-bottom;
+  animation: blink 1.2s step-end infinite;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+.scratch-status {
+  margin-top: auto;
+  font-size: 11px;
+  opacity: 0.55;
+}
+
+.scratch-hint {
+  margin-top: 6px;
+  font-size: 10px;
+  opacity: 0.35;
+}
+
+/* ---- 游戏区：参照 Game Boy 原版 Tetris 的屏幕版式 ---- */
+
+.game {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+  padding: 8px;
+  overflow: hidden;
+}
+
+/* 一整块绿色 LCD，左侧棋盘、右侧竖向信息栏。 */
+.console {
+  display: flex;
+  gap: 7px;
+  box-sizing: border-box;
+  height: 100%;
+  max-height: 320px;
+  padding: 7px;
+  border: 2px solid var(--screen-border);
+  border-radius: 6px;
+  background: var(--screen);
+}
+
+.board-wrap {
+  position: relative;
+  box-sizing: border-box;
+  flex: none;
+  height: 100%;
+  aspect-ratio: 10 / 22;
+  overflow: hidden;
+  border: 2px dashed var(--screen-dash);
+  background: var(--screen);
+}
+
+#board {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+}
+
+.side {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 58px;
+  flex: none;
+}
+
+.stat-box {
+  box-sizing: border-box;
+  border: 2px solid var(--screen-border);
+  background: var(--screen);
+  color: var(--value-fg);
+}
+
+.stat-label {
+  padding: 1px 3px;
+  background: var(--label-bg);
+  color: var(--label-fg);
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-align: center;
+}
+
+.stat-value {
+  padding: 1px 3px 2px;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  text-align: center;
+}
+
+.next-box {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 46px;
+}
+
+#next {
+  display: block;
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  image-rendering: pixelated;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: 8px;
+  background: var(--overlay-bg);
+  color: var(--overlay-fg);
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 10px;
+  line-height: 1.7;
+  text-align: center;
+  white-space: pre-line;
+}

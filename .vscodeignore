@@ -1,0 +1,16 @@
+.vscode/**
+src/**
+out-test/**
+node_modules/**
+**/*.map
+**/*.ts
+!**/*.d.ts
+scripts/**
+.github/**
+tsconfig.json
+esbuild.mjs
+pnpm-lock.yaml
+package-lock.json
+.gitignore
+.git/**
+.DS_Store
