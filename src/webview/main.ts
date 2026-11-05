@@ -39,6 +39,7 @@ const boardWrap = element<HTMLElement>("board-wrap");
 const scoreLabel = element<HTMLElement>("score");
 const levelLabel = element<HTMLElement>("level");
 const linesLabel = element<HTMLElement>("lines");
+const bestLabel = element<HTMLElement>("best");
 
 const CLEAR_ANIMATION_MS = 260;
 
@@ -97,6 +98,7 @@ function updateHud(): void {
   scoreLabel.textContent = String(state.score);
   levelLabel.textContent = String(state.level);
   linesLabel.textContent = String(state.lines);
+  bestLabel.textContent = String(Math.max(highScore, state.highScore));
 }
 
 function handleEvents(events: readonly GameEvent[]): void {

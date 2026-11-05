@@ -171,7 +171,7 @@ test("新方块出生位置被占则 game over", () => {
   assert.ok(result.state.highScore >= result.state.score);
 });
 
-test("软降每格 +1 分，且使用 50ms 间隔", () => {
+test("软降每格 +1 分，且使用 120ms 间隔", () => {
   let state = running();
   state = {
     ...state,
@@ -180,7 +180,11 @@ test("软降每格 +1 分，且使用 50ms 间隔", () => {
   };
   state = applyInput(state, "softDropOn").state;
 
-  const result = tick(state, 50);
+  // 60ms 还没到一个软降间隔，不应下落。
+  const early = tick(state, 60);
+  assert.equal(early.state.active?.y, 0);
+
+  const result = tick(early.state, 60);
   assert.equal(result.state.active?.y, 1);
   assert.equal(result.state.score, 1);
 });

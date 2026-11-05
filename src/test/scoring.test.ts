@@ -20,10 +20,10 @@ test("每十行升一级，封顶 15", () => {
   assert.equal(levelForLines(1000, 1), 15);
 });
 
-test("等级越高下落越快，软降固定 50ms", () => {
+test("等级越高下落越快，软降固定 120ms", () => {
   assert.equal(dropIntervalMs(1, false), 800);
   assert.ok(dropIntervalMs(5, false) < dropIntervalMs(1, false));
   // 0.85^14 会略微高于 80，max(80, …) 只是保底。
   assert.equal(dropIntervalMs(15, false), 82);
-  assert.equal(dropIntervalMs(1, true), 50);
+  assert.equal(dropIntervalMs(1, true), 120);
 });

@@ -2,7 +2,7 @@
   "name": "vscode-tetris",
   "displayName": "俄罗斯方块",
   "description": "在侧边栏里玩一局经典俄罗斯方块。一个快捷键开始，失焦自动暂停，关掉即摸鱼。",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "publisher": "luhaifeng666",
   "license": "MIT",
   "author": {

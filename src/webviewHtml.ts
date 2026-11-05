@@ -67,6 +67,10 @@ export function buildGameHtml(webview: vscode.Webview, extensionUri: vscode.Uri)
             <div class="stat-label">LINES</div>
             <div class="stat-value" id="lines">0</div>
           </div>
+          <div class="stat-box">
+            <div class="stat-label">BEST</div>
+            <div class="stat-value" id="best">0</div>
+          </div>
           <div class="stat-box next-box">
             <div class="stat-label">NEXT</div>
             <canvas id="next"></canvas>
