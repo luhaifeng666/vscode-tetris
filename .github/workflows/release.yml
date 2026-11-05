@@ -6,8 +6,10 @@
 # 仓库完全同构，照着那边的 docs/release-setup.html 做即可。
 #
 # 唯一要注意的：Federated credential 的 subject 必须换成本仓库的不可变 ID：
-#   repo:luhaifeng666@<OWNER_ID>/vscode-tetris@<REPO_ID>:environment:release
-# 建好仓库后可以用下面的命令复核：
+#   repo:luhaifeng666@9375823/vscode-tetris@1446683801:environment:release
+# 本仓库的实际 subject 已确认如下（2026-11-05）：
+#   repo:luhaifeng666@9375823/vscode-tetris@1446683801:environment:release
+# 复核命令：
 #   gh api repos/luhaifeng666/vscode-tetris/actions/oidc/customization/sub
 #
 # 发布方式：
