@@ -20,7 +20,10 @@ type HostMessage =
   | { type: "restart" }
   | { type: "panic" }
   | { type: "highScore"; value: number }
-  | { type: "rank"; requestId: string; rank: number; total: number };
+  | { type: "rank"; requestId: string; rank: number; total: number }
+  | { type: "rankLoading"; requestId: string }
+  | { type: "rankFailed"; requestId: string }
+  | { type: "rankSkipped"; requestId: string };
 
 const vscode = acquireVsCodeApi();
 
@@ -66,11 +69,39 @@ let clearAnimation: ClearAnimation | null = null;
 let runCounter = 0;
 let pendingRank = "";
 let rankLine = "";
+type RankState = "idle" | "loading" | "done" | "error";
+let rankState: RankState = "idle";
+let loadingDots = 0;
+let loadingTimer: number | undefined;
+
+function stopRankLoading(): void {
+  if (loadingTimer !== undefined) {
+    window.clearInterval(loadingTimer);
+    loadingTimer = undefined;
+  }
+}
+
+function resetRank(): void {
+  stopRankLoading();
+  rankState = "idle";
+  loadingDots = 0;
+  pendingRank = "";
+  rankLine = "";
+}
+
+function startRankLoading(): void {
+  stopRankLoading();
+  rankState = "loading";
+  loadingDots = 0;
+  loadingTimer = window.setInterval(() => {
+    loadingDots = (loadingDots + 1) % 4;
+    render();
+  }, 400);
+}
 
 function beginRun(): void {
   runCounter += 1;
-  pendingRank = "";
-  rankLine = "";
+  resetRank();
 }
 
 applySkinToDom(settings.skin);
@@ -121,6 +152,8 @@ function handleEvents(events: readonly GameEvent[]): void {
         break;
       case "gameOver":
         pendingRank = String(runCounter);
+        rankState = "idle";
+        rankLine = "";
         audio.gameOver();
         vscode.postMessage({
           type: "gameOver",
@@ -150,8 +183,15 @@ function renderOverlay(): void {
   } else if (state.status === "paused") {
     text = "已暂停";
   } else if (state.status === "gameOver") {
-    const rank = rankLine ? `\n${rankLine}` : "";
-    text = `游戏结束 · ${state.score} 分\n最高分 ${Math.max(highScore, state.highScore)}${rank}\n按 R 重开`;
+    let extra = "";
+    if (rankState === "loading") {
+      extra = `\n正在上传成绩${".".repeat(loadingDots)}`;
+    } else if (rankState === "done" && rankLine) {
+      extra = `\n${rankLine}`;
+    } else if (rankState === "error") {
+      extra = "\n排名获取失败";
+    }
+    text = `游戏结束 · ${state.score} 分\n最高分 ${Math.max(highScore, state.highScore)}${extra}\n按 R 重开`;
   }
   overlay.textContent = text;
   overlay.classList.toggle("hidden", text === "");
@@ -363,8 +403,7 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
         if (settings.autoStart) state = applyInput(state, "start").state;
       }
       runCounter = 1;
-      pendingRank = "";
-      rankLine = "";
+      resetRank();
       updateHud();
       render();
       audio.sync(state.status === "running");
@@ -408,6 +447,17 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
       updateHud();
       break;
 
+    case "rankLoading":
+      if (
+        pendingRank !== "" &&
+        message.requestId === pendingRank &&
+        state.status === "gameOver"
+      ) {
+        startRankLoading();
+        render();
+      }
+      break;
+
     case "rank": {
       const rank = Math.trunc(message.rank);
       const total = Math.trunc(message.total);
@@ -420,12 +470,42 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
         Number.isFinite(total) &&
         total >= 1
       ) {
+        stopRankLoading();
+        rankState = "done";
         rankLine = `全球第 ${rank} / 共 ${total} 人`;
         pendingRank = "";
         render();
       }
       break;
     }
+
+    case "rankFailed":
+      if (
+        pendingRank !== "" &&
+        message.requestId === pendingRank &&
+        state.status === "gameOver"
+      ) {
+        stopRankLoading();
+        rankState = "error";
+        rankLine = "";
+        pendingRank = "";
+        render();
+      }
+      break;
+
+    case "rankSkipped":
+      if (
+        pendingRank !== "" &&
+        message.requestId === pendingRank &&
+        state.status === "gameOver"
+      ) {
+        stopRankLoading();
+        rankState = "idle";
+        rankLine = "";
+        pendingRank = "";
+        render();
+      }
+      break;
   }
 });
 

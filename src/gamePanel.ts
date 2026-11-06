@@ -231,15 +231,30 @@ export class GamePanel implements vscode.WebviewViewProvider, vscode.Disposable 
 
         // 绑定当前视图实例：视图被销毁或重开后，迟到的响应直接丢掉。
         const target = this.view;
-        void this.deps.leaderboard.submit(score, lines, level, (result) => {
-          if (!result.ok || !target || this.view !== target) return;
-          void target.webview.postMessage({
-            type: "rank",
-            requestId,
-            rank: result.value.rank,
-            total: result.value.total,
+        if (!this.deps.leaderboard.canUpload()) {
+          if (target) {
+            void target.webview.postMessage({ type: "rankSkipped", requestId });
+          }
+        } else {
+          if (target) {
+            void target.webview.postMessage({ type: "rankLoading", requestId });
+          }
+          void this.deps.leaderboard.submit(score, lines, level, (result) => {
+            if (!target || this.view !== target) return;
+            if (result.ok) {
+              void target.webview.postMessage({
+                type: "rank",
+                requestId,
+                rank: result.value.rank,
+                total: result.value.total,
+              });
+            } else if (result.error.kind === "busy" || result.error.kind === "not-consented") {
+              void target.webview.postMessage({ type: "rankSkipped", requestId });
+            } else {
+              void target.webview.postMessage({ type: "rankFailed", requestId });
+            }
           });
-        });
+        }
         break;
       }
 

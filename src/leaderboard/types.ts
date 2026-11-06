@@ -35,6 +35,7 @@ export type LeaderboardErrorKind =
   | "malformed"
   | "disabled"
   | "not-consented"
+  | "busy"
   | "invalid";
 
 export interface LeaderboardError {

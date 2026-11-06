@@ -287,6 +287,10 @@ test("开启并同意后，gameOver 上传并回传 rank", async () => {
   assert.equal(posts[0].body.nickname, "Tester");
   assert.equal(typeof posts[0].body.playerId, "string");
 
+  assert.equal(
+    view.webview.posted.some((message) => message.type === "rankLoading"),
+    true,
+  );
   const rank = view.webview.posted.find((message) => message.type === "rank");
   assert.deepEqual(rank, {
     type: "rank",
@@ -319,6 +323,10 @@ test("默认关闭时 gameOver 不联网，但会记录本地榜", async () => {
   assert.equal(mock.requests.length, 0);
   assert.equal(
     view.webview.posted.some((message) => message.type === "rank"),
+    false,
+  );
+  assert.equal(
+    view.webview.posted.some((message) => message.type === "rankLoading"),
     false,
   );
 

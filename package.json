@@ -2,7 +2,7 @@
   "name": "vscode-tetris",
   "displayName": "俄罗斯方块",
   "description": "在侧边栏里玩一局经典俄罗斯方块：Game Boy 皮肤、芯片音乐、失焦自动暂停，可选在线 TOP10 排行榜。",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "publisher": "luhaifeng666",
   "license": "MIT",
   "author": {

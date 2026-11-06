@@ -64,17 +64,22 @@ export class LeaderboardService {
     level: number,
     deliver: DeliverRank,
   ): Promise<void> {
-    if (!this.canUpload()) return;
+    if (!this.canUpload()) {
+      deliver({ ok: false, error: { kind: "not-consented" } });
+      return;
+    }
 
     const settings = this.deps.getSettings();
     if (this.inFlight) {
       this.deps.log.info("排行榜上一条成绩还在提交，跳过本次");
+      deliver({ ok: false, error: { kind: "busy" } });
       return;
     }
 
     const playerId = await this.deps.getPlayerId();
     if (!playerId) {
       this.deps.log.warn("无法获取玩家 ID，跳过排行榜上传");
+      deliver({ ok: false, error: { kind: "invalid", message: "player id" } });
       return;
     }
 
@@ -88,6 +93,7 @@ export class LeaderboardService {
     );
     if (!submission) {
       this.deps.log.warn("成绩字段不合法，跳过排行榜上传");
+      deliver({ ok: false, error: { kind: "invalid", message: "score fields" } });
       return;
     }
 
