@@ -22,6 +22,10 @@ const created = {
   messages: [],
   webviewProviders: new Map(),
   executedCommands: [],
+  quickPicks: [],
+  quickPickResult: undefined,
+  inputBox: undefined,
+  inputBoxResult: undefined,
 };
 
 class Uri {
@@ -110,6 +114,29 @@ function createWebviewView(viewType) {
   return view;
 }
 
+function createSecrets() {
+  const store = new Map();
+  const emitter = new EventEmitter();
+  return {
+    store,
+    async get(key) {
+      return store.get(key);
+    },
+    async store(key, value) {
+      store.set(key, value);
+      emitter.emit("change");
+    },
+    async delete(key) {
+      store.delete(key);
+      emitter.emit("change");
+    },
+    onDidChange(listener) {
+      emitter.on("change", listener);
+      return new Disposable(() => emitter.off("change", listener));
+    },
+  };
+}
+
 function createMemento() {
   const store = new Map();
   return {
@@ -128,26 +155,55 @@ function createMemento() {
   };
 }
 
-const configStore = {};
+// 三层配置，模拟 VS Code 的 global / workspace / workspaceFolder。
+const configScopes = { global: {}, workspace: {}, workspaceFolder: {} };
+const configStore = configScopes.global;
 const configListeners = new EventEmitter();
 const ConfigurationTarget = { Global: 1, Workspace: 2, WorkspaceFolder: 3 };
+
+function configLayer(target) {
+  if (target === ConfigurationTarget.Workspace) return configScopes.workspace;
+  if (target === ConfigurationTarget.WorkspaceFolder) return configScopes.workspaceFolder;
+  return configScopes.global;
+}
 
 const workspace = {
   getConfiguration(section) {
     const prefix = section ? `${section}.` : "";
+    const full = (key) => `${prefix}${key}`;
+    const effective = (key) => {
+      for (const layer of [
+        configScopes.workspaceFolder,
+        configScopes.workspace,
+        configScopes.global,
+      ]) {
+        if (full(key) in layer) return layer[full(key)];
+      }
+      return undefined;
+    };
     return {
       get(key, fallback) {
-        const value = configStore[`${prefix}${key}`];
+        const value = effective(key);
         return value !== undefined ? value : fallback;
       },
-      async update(key, value) {
-        configStore[`${prefix}${key}`] = value;
+      async update(key, value, target) {
+        const layer = configLayer(target);
+        const name = full(key);
+        if (value === undefined) delete layer[name];
+        else layer[name] = value;
         configListeners.emit("change", {
           affectsConfiguration: (s) => s === undefined || s === section,
         });
       },
-      inspect() {
-        return {};
+      inspect(key) {
+        const name = full(key);
+        return {
+          key: name,
+          defaultValue: undefined,
+          globalValue: configScopes.global[name],
+          workspaceValue: configScopes.workspace[name],
+          workspaceFolderValue: configScopes.workspaceFolder[name],
+        };
       },
     };
   },
@@ -204,6 +260,14 @@ const window = {
       window.__activeEditorListener = undefined;
     });
   },
+  showQuickPick: async (items, options) => {
+    created.quickPicks.push({ items, options });
+    return created.quickPickResult;
+  },
+  showInputBox: async (options) => {
+    created.inputBox = options;
+    return created.inputBoxResult;
+  },
   showInformationMessage: async (message, ...rest) => {
     created.messages.push(["info", message, rest]);
     return undefined;
@@ -252,6 +316,8 @@ module.exports = {
   CancellationTokenSource,
   __created: created,
   __configStore: configStore,
+  __configScopes: configScopes,
   __createWebviewView: createWebviewView,
   __createMemento: createMemento,
+  __createSecrets: createSecrets,
 };

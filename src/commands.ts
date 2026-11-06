@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 
 import type { FloatingGame } from "./floatingGame";
 import type { GamePanel } from "./gamePanel";
+import type { LocalBoard } from "./leaderboard/localBoard";
 import type { ScoreStore } from "./scoreStore";
 
 export const COMMAND_TOGGLE = "tetris.toggle";
@@ -15,6 +16,7 @@ export function registerCommands(
   panel: GamePanel,
   scores: ScoreStore,
   floating: FloatingGame,
+  localBoard: LocalBoard,
 ): vscode.Disposable[] {
   return [
     vscode.commands.registerCommand(COMMAND_TOGGLE, () => {
@@ -32,14 +34,15 @@ export function registerCommands(
 
     vscode.commands.registerCommand(COMMAND_RESET_HIGH_SCORE, async () => {
       const choice = await vscode.window.showWarningMessage(
-        "清除俄罗斯方块的最高分记录？",
+        "清除俄罗斯方块的最高分和本地 TOP10 记录？",
         { modal: true },
         "清除",
       );
       if (choice !== "清除") return;
       scores.reset();
+      localBoard.reset();
       panel.resetHighScore();
-      vscode.window.showInformationMessage("最高分已清除。");
+      vscode.window.showInformationMessage("最高分与本地 TOP10 已清除。");
     }),
 
     vscode.commands.registerCommand(COMMAND_OPEN_SETTINGS, () => {

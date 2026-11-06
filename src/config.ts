@@ -1,10 +1,58 @@
 import * as vscode from "vscode";
 
 import type { Settings, Skin } from "./game/types";
+import { normalizeEndpoint } from "./leaderboard/policy";
 
 export const CONFIG_SECTION = "tetris";
 
 export type WarningReporter = (message: string) => void;
+
+export interface LeaderboardSettings {
+  readonly enabled: boolean;
+  readonly endpoint: string;
+  readonly nickname: string;
+}
+
+/**
+ * 只读 machine 级（global/default），显式忽略 workspace/workspaceFolder。
+ * 否则仓库里的 .vscode/settings.json 就能把分数发到任意地址。
+ */
+function machineValue<T>(
+  config: vscode.WorkspaceConfiguration,
+  key: string,
+  fallback: T,
+): T {
+  const inspected = config.inspect<T>(key);
+  const value = inspected?.globalValue ?? inspected?.defaultValue;
+  return value === undefined ? fallback : value;
+}
+
+export function readLeaderboardSettings(
+  section?: vscode.WorkspaceConfiguration,
+  warn: WarningReporter = () => {},
+): LeaderboardSettings {
+  const config = section ?? vscode.workspace.getConfiguration(CONFIG_SECTION);
+
+  const enabled = machineValue<boolean>(config, "leaderboardEnabled", false) === true;
+
+  const rawEndpoint = machineValue<string>(config, "leaderboardEndpoint", "");
+  let endpoint = "";
+  if (typeof rawEndpoint === "string" && rawEndpoint.trim().length > 0) {
+    const normalized = normalizeEndpoint(rawEndpoint);
+    if (normalized.ok) {
+      endpoint = normalized.value;
+    } else {
+      warn(
+        `tetris.leaderboardEndpoint 不合法（${normalized.error.message ?? "invalid"}），在线排行榜已停用。`,
+      );
+    }
+  }
+
+  const rawNickname = machineValue<string>(config, "leaderboardNickname", "");
+  const nickname = typeof rawNickname === "string" ? rawNickname : "";
+
+  return { enabled, endpoint, nickname };
+}
 
 /**
  * 读取设置。值来自用户可编辑的 JSON，逐项做防御性校验，

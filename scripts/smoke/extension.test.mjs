@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
+import { createServer } from "node:http";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { createRequire } from "node:module";
 import Module from "node:module";
@@ -41,11 +42,7 @@ function setup(entry = join(root, "dist/extension.js")) {
     extensionUri: Uri.file(root),
     extension: { packageJSON: pkg },
     globalState: createMemento(),
-    secrets: {
-      get: async () => undefined,
-      store: async () => {},
-      onDidChange: () => new Disposable(),
-    },
+    secrets: stub.__createSecrets(),
   };
   const extension = loadExtension(entry);
   extension.activate(context);
@@ -194,7 +191,7 @@ test(
         assert.ok(existsSync(join(extensionDir, file)), `vsix 内缺少 ${file}`);
       }
 
-      for (const forbidden of ["src", "scripts", "out-test", "tsconfig.json", "esbuild.mjs"]) {
+      for (const forbidden of ["src", "scripts", "server", "out-test", "tsconfig.json", "esbuild.mjs"]) {
         assert.equal(existsSync(join(extensionDir, forbidden)), false, `vsix 不应包含 ${forbidden}`);
       }
 
@@ -205,3 +202,159 @@ test(
     }
   },
 );
+
+// ---- 排行榜 ----
+
+function resetConfig() {
+  for (const layer of [
+    stub.__configScopes.global,
+    stub.__configScopes.workspace,
+    stub.__configScopes.workspaceFolder,
+  ]) {
+    for (const key of Object.keys(layer)) delete layer[key];
+  }
+}
+
+async function startMockLeaderboard() {
+  const requests = [];
+  const server = createServer((req, res) => {
+    const chunks = [];
+    req.on("data", (chunk) => chunks.push(chunk));
+    req.on("end", () => {
+      res.setHeader("content-type", "application/json");
+      if (req.method === "POST" && req.url === "/v1/scores") {
+        const body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+        requests.push({ method: req.method, url: req.url, body });
+        res.end(JSON.stringify({ rank: 3, total: 10, best: body.score }));
+        return;
+      }
+      if (req.method === "GET" && req.url === "/v1/top") {
+        requests.push({ method: req.method, url: req.url });
+        res.end(JSON.stringify({ entries: [], total: 0, updatedAt: "x" }));
+        return;
+      }
+      res.statusCode = 404;
+      res.end(JSON.stringify({ error: "not_found" }));
+    });
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const { port } = server.address();
+  return {
+    base: `http://127.0.0.1:${port}`,
+    requests,
+    close: () => new Promise((resolve) => server.close(() => resolve())),
+  };
+}
+
+function openGame(entry) {
+  const { context } = setup(entry);
+  const { provider } = created.webviewProviders.get("tetris.game");
+  const view = createWebviewView("tetris.game");
+  provider.resolveWebviewView(view, { state: undefined }, cancellationToken);
+  view.webview.__receive({ type: "ready" });
+  return { context, view };
+}
+
+test("开启并同意后，gameOver 上传并回传 rank", async () => {
+  resetConfig();
+  const mock = await startMockLeaderboard();
+  const { context, view } = openGame();
+
+  const config = stub.workspace.getConfiguration("tetris");
+  await config.update("leaderboardEndpoint", mock.base, stub.ConfigurationTarget.Global);
+  await config.update("leaderboardEnabled", true, stub.ConfigurationTarget.Global);
+  await config.update("leaderboardNickname", "Tester", stub.ConfigurationTarget.Global);
+  await context.globalState.update("tetris.leaderboardConsent", {
+    endpoint: mock.base,
+    fieldsVersion: 1,
+    acceptedAt: new Date().toISOString(),
+  });
+
+  view.webview.__receive({
+    type: "gameOver",
+    score: 5000,
+    lines: 20,
+    level: 3,
+    requestId: "run-1",
+  });
+  await new Promise((resolve) => setTimeout(resolve, 600));
+
+  const posts = mock.requests.filter((request) => request.method === "POST");
+  assert.equal(posts.length, 1);
+  assert.equal(posts[0].body.score, 5000);
+  assert.equal(posts[0].body.lines, 20);
+  assert.equal(posts[0].body.level, 3);
+  assert.equal(posts[0].body.nickname, "Tester");
+  assert.equal(typeof posts[0].body.playerId, "string");
+
+  const rank = view.webview.posted.find((message) => message.type === "rank");
+  assert.deepEqual(rank, {
+    type: "rank",
+    requestId: "run-1",
+    rank: 3,
+    total: 10,
+  });
+
+  for (const disposable of context.subscriptions) disposable.dispose();
+  await mock.close();
+});
+
+test("默认关闭时 gameOver 不联网，但会记录本地榜", async () => {
+  resetConfig();
+  const mock = await startMockLeaderboard();
+  const { context, view } = openGame();
+
+  const config = stub.workspace.getConfiguration("tetris");
+  await config.update("leaderboardEndpoint", mock.base, stub.ConfigurationTarget.Global);
+
+  view.webview.__receive({
+    type: "gameOver",
+    score: 2500,
+    lines: 12,
+    level: 2,
+    requestId: "run-2",
+  });
+  await new Promise((resolve) => setTimeout(resolve, 600));
+
+  assert.equal(mock.requests.length, 0);
+  assert.equal(
+    view.webview.posted.some((message) => message.type === "rank"),
+    false,
+  );
+
+  const local = context.globalState.get("tetris.localTopScores");
+  assert.equal(local.length, 1);
+  assert.equal(local[0].score, 2500);
+
+  for (const disposable of context.subscriptions) disposable.dispose();
+  await mock.close();
+});
+
+test("workspace 级设置无法开启上传", async () => {
+  resetConfig();
+  const mock = await startMockLeaderboard();
+  const { context, view } = openGame();
+
+  const config = stub.workspace.getConfiguration("tetris");
+  await config.update("leaderboardEndpoint", mock.base, stub.ConfigurationTarget.Workspace);
+  await config.update("leaderboardEnabled", true, stub.ConfigurationTarget.Workspace);
+  await context.globalState.update("tetris.leaderboardConsent", {
+    endpoint: mock.base,
+    fieldsVersion: 1,
+    acceptedAt: new Date().toISOString(),
+  });
+
+  view.webview.__receive({
+    type: "gameOver",
+    score: 9999,
+    lines: 30,
+    level: 5,
+    requestId: "run-3",
+  });
+  await new Promise((resolve) => setTimeout(resolve, 600));
+
+  assert.equal(mock.requests.length, 0);
+
+  for (const disposable of context.subscriptions) disposable.dispose();
+  await mock.close();
+});

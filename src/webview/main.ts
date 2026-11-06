@@ -19,7 +19,8 @@ type HostMessage =
   | { type: "resume" }
   | { type: "restart" }
   | { type: "panic" }
-  | { type: "highScore"; value: number };
+  | { type: "highScore"; value: number }
+  | { type: "rank"; requestId: string; rank: number; total: number };
 
 const vscode = acquireVsCodeApi();
 
@@ -61,6 +62,16 @@ let settings: Settings = {
 };
 let highScore = 0;
 let clearAnimation: ClearAnimation | null = null;
+
+let runCounter = 0;
+let pendingRank = "";
+let rankLine = "";
+
+function beginRun(): void {
+  runCounter += 1;
+  pendingRank = "";
+  rankLine = "";
+}
 
 applySkinToDom(settings.skin);
 let palette: Palette = paletteFor(settings.skin);
@@ -109,8 +120,15 @@ function handleEvents(events: readonly GameEvent[]): void {
         vscode.postMessage({ type: "status", status: event.status, score: state.score });
         break;
       case "gameOver":
+        pendingRank = String(runCounter);
         audio.gameOver();
-        vscode.postMessage({ type: "gameOver", score: event.score });
+        vscode.postMessage({
+          type: "gameOver",
+          score: event.score,
+          lines: state.lines,
+          level: state.level,
+          requestId: pendingRank,
+        });
         break;
       case "lock":
         audio.lock();
@@ -132,7 +150,8 @@ function renderOverlay(): void {
   } else if (state.status === "paused") {
     text = "已暂停";
   } else if (state.status === "gameOver") {
-    text = `游戏结束 · ${state.score} 分\n最高分 ${Math.max(highScore, state.highScore)}\n按 R 重开`;
+    const rank = rankLine ? `\n${rankLine}` : "";
+    text = `游戏结束 · ${state.score} 分\n最高分 ${Math.max(highScore, state.highScore)}${rank}\n按 R 重开`;
   }
   overlay.textContent = text;
   overlay.classList.toggle("hidden", text === "");
@@ -293,6 +312,13 @@ function play(input: Input): void {
     clearAnimation = null;
   }
 
+  if (
+    input === "restart" ||
+    (input === "start" && (state.status === "idle" || state.status === "gameOver"))
+  ) {
+    beginRun();
+  }
+
   const before = state.active;
   const wasRunning = state.status === "running";
   const result = applyInput(state, input);
@@ -336,6 +362,9 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
         });
         if (settings.autoStart) state = applyInput(state, "start").state;
       }
+      runCounter = 1;
+      pendingRank = "";
+      rankLine = "";
       updateHud();
       render();
       audio.sync(state.status === "running");
@@ -378,6 +407,25 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
       state = { ...state, highScore };
       updateHud();
       break;
+
+    case "rank": {
+      const rank = Math.trunc(message.rank);
+      const total = Math.trunc(message.total);
+      if (
+        pendingRank !== "" &&
+        message.requestId === pendingRank &&
+        state.status === "gameOver" &&
+        Number.isFinite(rank) &&
+        rank >= 1 &&
+        Number.isFinite(total) &&
+        total >= 1
+      ) {
+        rankLine = `全球第 ${rank} / 共 ${total} 人`;
+        pendingRank = "";
+        render();
+      }
+      break;
+    }
   }
 });
 

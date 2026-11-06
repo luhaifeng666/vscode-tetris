@@ -1,6 +1,8 @@
 import * as vscode from "vscode";
 
 import type { Settings } from "./game/types";
+import type { LocalBoard } from "./leaderboard/localBoard";
+import type { LeaderboardService } from "./leaderboard/service";
 import { buildGameHtml } from "./webviewHtml";
 
 export interface FloatingGameDeps {
@@ -8,6 +10,8 @@ export interface FloatingGameDeps {
   readonly getSettings: () => Settings;
   readonly getHighScore: () => number;
   readonly setHighScore: (score: number) => boolean;
+  readonly localBoard: LocalBoard;
+  readonly leaderboard: LeaderboardService;
   /** 打开独立窗口前先暂停侧边栏里的那一局。 */
   readonly pausePanel: () => void;
   readonly log: vscode.LogOutputChannel;
@@ -16,6 +20,9 @@ export interface FloatingGameDeps {
 interface WebviewMessage {
   readonly type?: unknown;
   readonly score?: unknown;
+  readonly lines?: unknown;
+  readonly level?: unknown;
+  readonly requestId?: unknown;
 }
 
 /**
@@ -109,9 +116,42 @@ export class FloatingGame implements vscode.Disposable {
           typeof message.score === "number" && Number.isFinite(message.score)
             ? message.score
             : 0;
+        const lines =
+          typeof message.lines === "number" &&
+          Number.isInteger(message.lines) &&
+          message.lines >= 0
+            ? message.lines
+            : 0;
+        const level =
+          typeof message.level === "number" &&
+          Number.isInteger(message.level) &&
+          message.level >= 1 &&
+          message.level <= 15
+            ? message.level
+            : 1;
+        const requestId = typeof message.requestId === "string" ? message.requestId : "";
+
+        this.deps.localBoard.record({
+          score,
+          lines,
+          level,
+          at: new Date().toISOString(),
+        });
+
         if (this.deps.setHighScore(score)) {
           this.post({ type: "highScore", value: this.deps.getHighScore() });
         }
+
+        const target = this.panel;
+        void this.deps.leaderboard.submit(score, lines, level, (result) => {
+          if (!result.ok || !target || this.panel !== target) return;
+          void target.webview.postMessage({
+            type: "rank",
+            requestId,
+            rank: result.value.rank,
+            total: result.value.total,
+          });
+        });
         break;
       }
 

@@ -1,8 +1,8 @@
 {
   "name": "vscode-tetris",
   "displayName": "俄罗斯方块",
-  "description": "在侧边栏里玩一局经典俄罗斯方块。一个快捷键开始，失焦自动暂停，关掉即摸鱼。",
-  "version": "0.4.2",
+  "description": "在侧边栏里玩一局经典俄罗斯方块：Game Boy 皮肤、芯片音乐、失焦自动暂停，可选在线 TOP10 排行榜。",
+  "version": "0.5.0",
   "publisher": "luhaifeng666",
   "license": "MIT",
   "author": {
@@ -20,7 +20,10 @@
     "俄罗斯方块",
     "游戏",
     "sidebar",
-    "webview"
+    "webview",
+    "排行榜",
+    "leaderboard",
+    "social"
   ],
   "icon": "images/icon.png",
   "main": "./dist/extension.js",
@@ -75,6 +78,21 @@
       {
         "command": "tetris.openWindow",
         "title": "在独立窗口打开",
+        "category": "俄罗斯方块"
+      },
+      {
+        "command": "tetris.showLeaderboard",
+        "title": "查看排行榜",
+        "category": "俄罗斯方块"
+      },
+      {
+        "command": "tetris.enableLeaderboard",
+        "title": "开启在线排行榜",
+        "category": "俄罗斯方块"
+      },
+      {
+        "command": "tetris.setNickname",
+        "title": "设置排行榜昵称",
         "category": "俄罗斯方块"
       }
     ],
@@ -147,6 +165,24 @@
           "default": "gameboy",
           "scope": "window",
           "markdownDescription": "游戏皮肤。`transparent` 会去掉绿色屏幕底色，让侧边栏背景直接透出来，隐蔽性最强。"
+        },
+        "tetris.leaderboardEnabled": {
+          "type": "boolean",
+          "default": false,
+          "scope": "machine",
+          "markdownDescription": "开启在线 TOP10 排行榜。首次开启请使用命令「俄罗斯方块: 开启在线排行榜」并确认上传字段；只有开启且同意后才会联网。"
+        },
+        "tetris.leaderboardEndpoint": {
+          "type": "string",
+          "default": "",
+          "scope": "machine",
+          "markdownDescription": "在线排行榜服务的 base URL，例如 `https://your-domain/tetris-api`。必须是 https（本机调试可用 `http://127.0.0.1`）。"
+        },
+        "tetris.leaderboardNickname": {
+          "type": "string",
+          "default": "",
+          "scope": "machine",
+          "markdownDescription": "在线排行榜显示的昵称，最多 24 个字符；留空时使用匿名名字。"
         }
       }
     }
@@ -161,7 +197,8 @@
     "smoke:vsix": "SMOKE_TARGET=vsix node --test scripts/smoke/extension.test.mjs",
     "vscode:prepublish": "npm run bundle",
     "package": "vsce package",
-    "publish": "vsce publish"
+    "publish": "vsce publish",
+    "test:server": "node --test server/test/*.test.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

@@ -1,9 +1,15 @@
 import * as vscode from "vscode";
 
 import { registerCommands } from "./commands";
-import { onSettingsChanged, readSettings } from "./config";
+import { onSettingsChanged, readLeaderboardSettings, readSettings } from "./config";
 import { FloatingGame } from "./floatingGame";
 import { GamePanel } from "./gamePanel";
+import { LeaderboardClient } from "./leaderboard/client";
+import { registerLeaderboardCommands } from "./leaderboard/commands";
+import { readConsent } from "./leaderboard/consent";
+import { getOrCreatePlayerId } from "./leaderboard/identity";
+import { LocalBoard } from "./leaderboard/localBoard";
+import { LeaderboardService } from "./leaderboard/service";
 import { initLogger } from "./logging";
 import { ScoreStore } from "./scoreStore";
 
@@ -16,11 +22,24 @@ export function activate(context: vscode.ExtensionContext): void {
   const scores = new ScoreStore(context.globalState, log);
   context.subscriptions.push(scores);
 
+  const localBoard = new LocalBoard(context.globalState);
+  const leaderboard = new LeaderboardService({
+    getSettings: () => readLeaderboardSettings(undefined, (message) => log.warn(message)),
+    getConsent: () => readConsent(context),
+    getPlayerId: () => getOrCreatePlayerId(context),
+    getVersion: () =>
+      String((context.extension.packageJSON as { version?: unknown }).version ?? "unknown"),
+    createClient: (endpoint) => new LeaderboardClient(endpoint),
+    log,
+  });
+
   const panel = new GamePanel({
     extensionUri: context.extensionUri,
     getSettings: () => settings,
     getHighScore: () => scores.get(),
     setHighScore: (score) => scores.update(score),
+    localBoard,
+    leaderboard,
     log,
   });
 
@@ -29,6 +48,8 @@ export function activate(context: vscode.ExtensionContext): void {
     getSettings: () => settings,
     getHighScore: () => scores.get(),
     setHighScore: (score) => scores.update(score),
+    localBoard,
+    leaderboard,
     pausePanel: () => panel.pause(),
     log,
   });
@@ -49,7 +70,14 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(GamePanel.viewId, panel),
 
-    ...registerCommands(context, panel, scores, floating),
+    ...registerCommands(context, panel, scores, floating, localBoard),
+
+    ...registerLeaderboardCommands({
+      context,
+      service: leaderboard,
+      localBoard,
+      log,
+    }),
 
     onSettingsChanged(() => {
       settings = readSettings(undefined, (message) => log.warn(message));
