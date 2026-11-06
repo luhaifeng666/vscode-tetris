@@ -68,7 +68,7 @@
 | `tetris.hideSidebarOnPause` | `true` | 暂停/失焦/按 Esc 时直接隐藏整个侧边栏（老板键） |
 | `tetris.skin` | `gameboy` | 皮肤：`gameboy` / `light` / `transparent` |
 | `tetris.leaderboardEnabled` | `false` | 开启在线 TOP10（machine 级；需通过命令同意上传） |
-| `tetris.leaderboardEndpoint` | `""` | 排行榜服务 base URL（必须是 https；本机调试可 `http://127.0.0.1`） |
+| `tetris.leaderboardEndpoint` | `https://www.bunpou.cn/tetris-api` | 排行榜服务 base URL（必须是 https；可改成自建地址） |
 | `tetris.leaderboardNickname` | `""` | 排行榜昵称，最多 24 个字符；留空使用匿名名字 |
 
 > 浏览器要求音频由用户手势解锁：第一次按键或点击面板后才会出声。
@@ -77,8 +77,8 @@
 
 默认关闭。开启后，所有把 `tetris.leaderboardEndpoint` 指向同一个服务的人共用一个 TOP10。
 
-1. 把仓库里的 [`server/`](https://github.com/luhaifeng666/vscode-tetris/tree/main/server) 部署到你的服务器，按 `server/README.md` 配置 HTTPS 反代。
-2. 在设置里把 `tetris.leaderboardEndpoint` 设为 base URL，例如 `https://your-domain/tetris-api`。
+1. 默认地址已经是 `https://www.bunpou.cn/tetris-api`，直接运行命令 **「俄罗斯方块: 开启在线排行榜」** 并确认上传字段即可。
+2. 想自建：把仓库里的 [`server/`](https://github.com/luhaifeng666/vscode-tetris/tree/main/server) 部署到你的服务器，按 `server/README.md` 配置 HTTPS 反代，再把 `tetris.leaderboardEndpoint` 改成你的地址。
 3. 运行命令 **「俄罗斯方块: 开启在线排行榜」**，确认上传字段。
 4. 完成一局后遮罩会显示排名；用 **「查看排行榜」** 查看在线 TOP10，服务器不可用时自动回退本地 TOP10。
 

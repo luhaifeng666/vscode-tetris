@@ -174,7 +174,7 @@
         },
         "tetris.leaderboardEndpoint": {
           "type": "string",
-          "default": "",
+          "default": "https://www.bunpou.cn/tetris-api",
           "scope": "machine",
           "markdownDescription": "在线排行榜服务的 base URL，例如 `https://your-domain/tetris-api`。必须是 https（本机调试可用 `http://127.0.0.1`）。"
         },
