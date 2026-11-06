@@ -8,7 +8,8 @@ import type {
 
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
-const TIMEOUT_MS = 5_000;
+// 服务器 TLS 握手偶尔要 5–6 秒，5 秒会误杀；15 秒留足余量。
+const TIMEOUT_MS = 15_000;
 const MAX_RESPONSE_BYTES = 64 * 1024;
 
 function malformed(): LeaderboardResult<never> {
