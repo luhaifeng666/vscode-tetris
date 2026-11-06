@@ -1,12 +1,12 @@
 import { shapeAt } from "../game/tetromino";
-import { COLS, ROWS, type GameState, type PieceKind } from "../game/types";
+import { COLS, MAX_CELL_PX, ROWS, type GameState, type PieceKind } from "../game/types";
 import type { Palette, Shades } from "./skin";
 
 /**
  * 格子始终取整数像素，保证像素边缘清晰。
- * 上限 12px：侧边栏再宽也不会变成巨型砖块；窄于 120px 时按宽度等比缩小。
+ * 上限由 MAX_CELL_PX 控制；棋盘尺寸由 main.ts 精确设置成 10×22 格，
+ * 因此正常情况下 offset 为 0，虚线框内没有上下留白。
  */
-const MAX_CELL = 12;
 const MIN_CELL = 6;
 
 function prepareCanvas(
@@ -39,9 +39,18 @@ interface BoardLayout {
   readonly offsetY: number;
 }
 
+/**
+ * 在给定空间里能放下的最大整数格尺寸。
+ * 主界面用它反推虚线框应该收缩到多大，保证棋盘正好贴边（只留 1px 呼吸缝）。
+ */
+export function boardCellFor(width: number, height: number): number | null {
+  const cell = Math.min(MAX_CELL_PX, Math.floor(Math.min(width / COLS, height / ROWS)));
+  return cell >= MIN_CELL ? cell : null;
+}
+
 function boardLayout(width: number, height: number): BoardLayout | null {
-  const cell = Math.min(MAX_CELL, Math.floor(Math.min(width / COLS, height / ROWS)));
-  if (cell < MIN_CELL) return null;
+  const cell = boardCellFor(width, height);
+  if (cell === null) return null;
   return {
     cell,
     boardWidth: cell * COLS,

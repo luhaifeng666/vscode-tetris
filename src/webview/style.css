@@ -127,7 +127,7 @@ body[data-skin="transparent"] {
   display: flex;
   gap: 7px;
   box-sizing: border-box;
-  height: 100%;
+  height: auto;
   max-height: 320px;
   padding: 7px;
   border: 2px solid var(--screen-border);
@@ -139,8 +139,8 @@ body[data-skin="transparent"] {
   position: relative;
   box-sizing: border-box;
   flex: none;
-  height: 100%;
-  aspect-ratio: 10 / 22;
+  width: 124px;
+  height: 268px;
   overflow: hidden;
   border: 2px dashed var(--screen-dash);
   background: var(--screen);

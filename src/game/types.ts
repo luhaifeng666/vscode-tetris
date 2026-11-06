@@ -3,6 +3,9 @@ export const COLS = 10;
 export const ROWS = 22;
 export const MAX_LEVEL = 15;
 
+/** 单个格子的最大像素尺寸（webview 布局与渲染共用）。 */
+export const MAX_CELL_PX = 12;
+
 export type PieceKind = "I" | "O" | "T" | "S" | "Z" | "J" | "L";
 
 /** 顺序固定，随机数取模后按这个表选方块。 */

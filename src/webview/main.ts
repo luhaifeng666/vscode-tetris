@@ -3,7 +3,7 @@ import type { ActivePiece, GameEvent, GameState, GameStatus, Input, PieceKind, S
 import { COLS, PIECE_KINDS, ROWS } from "../game/types";
 import { AudioEngine } from "./audio";
 import { isSoftDropKey, keyToAction } from "./input";
-import { drawBoard, drawClearAnimation, drawNext } from "./renderer";
+import { boardCellFor, drawBoard, drawClearAnimation, drawNext } from "./renderer";
 import { applySkinToDom, paletteFor, watchTheme, type Palette } from "./skin";
 
 declare function acquireVsCodeApi(): {
@@ -142,10 +142,20 @@ function render(): void {
   const showGame =
     !settings.disguise || state.status === "running" || state.status === "gameOver";
 
+  // 先切显示状态，fitBoardArea 才能量到真实尺寸。
   gameSection.classList.toggle("hidden", !showGame);
   scratchSection.classList.toggle("hidden", showGame);
 
+  if (showGame !== lastShowGame) {
+    lastShowGame = showGame;
+    stageDirty = true;
+  }
+
   if (showGame) {
+    if (stageDirty) {
+      fitBoardArea();
+      stageDirty = false;
+    }
     if (clearAnimation) {
       const progress = (performance.now() - clearAnimation.startedAt) / CLEAR_ANIMATION_MS;
       if (progress < 1) {
@@ -419,6 +429,69 @@ document.addEventListener("visibilitychange", () => {
 });
 
 let lastFrame = performance.now();
+let stageDirty = true;
+let lastShowGame = false;
+
+/**
+ * 虚线框以前是 10:22 的固定比例、由宿主高度撑满，但棋盘格只能取整数，
+ * 于是框比棋盘高，砖块永远够不到底。这里反算整数格尺寸，让外壳和虚线框
+ * 收缩到棋盘大小（各方向只留 1px 呼吸缝）。
+ */
+function fitBoardArea(): void {
+  const consoleEl = boardWrap.parentElement;
+  const sideEl = consoleEl?.querySelector<HTMLElement>(".side");
+  if (!consoleEl || !sideEl) return;
+
+  const gameRect = gameSection.getBoundingClientRect();
+  const gameStyle = getComputedStyle(gameSection);
+  const px = (value: string): number => Number.parseFloat(value) || 0;
+  const availW = gameRect.width - px(gameStyle.paddingLeft) - px(gameStyle.paddingRight);
+  const availH = gameRect.height - px(gameStyle.paddingTop) - px(gameStyle.paddingBottom);
+  if (availW <= 0 || availH <= 0) return;
+
+  const consoleStyle = getComputedStyle(consoleEl);
+  const sideWidth = sideEl.getBoundingClientRect().width;
+  const gap = px(consoleStyle.columnGap) || px(consoleStyle.gap);
+
+  const boardSpaceW =
+    availW -
+    px(consoleStyle.borderLeftWidth) -
+    px(consoleStyle.borderRightWidth) -
+    px(consoleStyle.paddingLeft) -
+    px(consoleStyle.paddingRight) -
+    sideWidth -
+    gap;
+  const boardSpaceH =
+    availH -
+    px(consoleStyle.borderTopWidth) -
+    px(consoleStyle.borderBottomWidth) -
+    px(consoleStyle.paddingTop) -
+    px(consoleStyle.paddingBottom);
+
+  // 虚线框自身 2px 描边 ×2；呼吸缝 0，棋盘正好贴住虚线内侧。
+  const border = 4;
+  const breathing = 0;
+  const cell = boardCellFor(boardSpaceW - border - breathing, boardSpaceH - border - breathing);
+  if (cell === null) {
+    // 空间不够放下最小格子：交回 CSS，让 renderer 去显示「面板太窄」。
+    boardWrap.style.removeProperty("width");
+    boardWrap.style.removeProperty("height");
+    consoleEl.style.removeProperty("height");
+    return;
+  }
+
+  const wrapW = cell * COLS + border + breathing;
+  const wrapH = cell * ROWS + border + breathing;
+  boardWrap.style.width = `${wrapW}px`;
+  boardWrap.style.height = `${wrapH}px`;
+  consoleEl.style.height = `${
+    wrapH +
+    px(consoleStyle.paddingTop) +
+    px(consoleStyle.paddingBottom) +
+    px(consoleStyle.borderTopWidth) +
+    px(consoleStyle.borderBottomWidth)
+  }px`;
+}
 
 function frame(now: number): void {
   const delta = Math.min(100, Math.max(0, now - lastFrame));
@@ -434,7 +507,10 @@ function frame(now: number): void {
   requestAnimationFrame(frame);
 }
 
-new ResizeObserver(() => render()).observe(boardWrap);
+new ResizeObserver(() => {
+  stageDirty = true;
+  render();
+}).observe(gameSection);
 
 watchTheme(() => {
   palette = paletteFor(settings.skin);
